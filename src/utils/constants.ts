@@ -11,8 +11,8 @@ export const APP_VERSION = '1.0.0'
 export const ALERTS_POLLING_INTERVAL = 15000 // 15 seconds
 export const VEHICLES_POLLING_INTERVAL = 30000 // 30 seconds
 
-// Map defaults
-export const DEFAULT_MAP_CENTER = { lat: 4.711, lng: -74.0721 } // Bogotá
+// Map defaults - Bogotá, Colombia
+export const DEFAULT_MAP_CENTER = { lat: 4.711, lng: -74.0721 }
 export const DEFAULT_MAP_ZOOM = 12
 
 // Alert severity colors
