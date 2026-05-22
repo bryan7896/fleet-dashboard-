@@ -18,7 +18,7 @@ export const Dashboard = () => {
   const navigate = useNavigate()
   const { showToast } = useToast()
   const { vehicles, loading: vehiclesLoading, error: vehiclesError, fetchVehicles } = useVehicles()
-  const { alerts, alertCount, addAlertFromEvent, fetchAlerts } = useAlertsGlobal()
+  const { alerts, alertCount, addAlertFromEvent } = useAlertsGlobal()
   const [backendStatus, setBackendStatus] = useState<HealthCheck | null>(null)
   const [backendError, setBackendError] = useState<string | null>(null)
 
@@ -99,13 +99,8 @@ export const Dashboard = () => {
     showToast('Intentando reconectar...', 'info')
   }
 
-  const handleRefreshAlerts = () => {
-    fetchAlerts()
-    showToast('Alertas actualizadas', 'info')
-  }
-
   return (
-    <Layout alertCount={alertCount}>
+    <Layout>
       <div className="space-y-6">
         {/* Connection Status */}
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -132,12 +127,6 @@ export const Dashboard = () => {
                 🔌 Reconectar WebSocket
               </button>
             )}
-            <button
-              onClick={handleRefreshAlerts}
-              className="text-xs bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded text-gray-300 transition-colors"
-            >
-              🔄 Refrescar Alertas
-            </button>
           </div>
         </div>
 
@@ -168,7 +157,6 @@ export const Dashboard = () => {
             <AlertsPanel
               alerts={alerts}
               loading={false}
-              onRefresh={handleRefreshAlerts}
             />
           </div>
         </div>

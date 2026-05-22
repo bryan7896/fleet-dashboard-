@@ -3,10 +3,9 @@ import type { Alert } from '../../types'
 interface AlertsPanelProps {
   alerts: Alert[]
   loading?: boolean
-  onRefresh?: () => void
 }
 
-export const AlertsPanel = ({ alerts, loading = false, onRefresh }: AlertsPanelProps) => {
+export const AlertsPanel = ({ alerts, loading = false }: AlertsPanelProps) => {
   const getSeverityStyles = (severity: string) => {
     const styles: Record<string, { bg: string; border: string; text: string }> = {
       High: { bg: 'bg-red-500/10', border: 'border-red-500/30', text: 'text-red-400' },
@@ -39,15 +38,6 @@ export const AlertsPanel = ({ alerts, loading = false, onRefresh }: AlertsPanelP
             <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
               {alerts.length} activas
             </span>
-          )}
-          {onRefresh && (
-            <button
-              onClick={onRefresh}
-              className="text-gray-400 hover:text-white transition-colors text-sm"
-              title="Refrescar alertas"
-            >
-              🔄
-            </button>
           )}
         </div>
       </div>

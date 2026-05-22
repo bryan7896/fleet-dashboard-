@@ -44,7 +44,7 @@ export const AlertProvider = ({ children }: { children: ReactNode }) => {
             plate: event.plate,
         }
         setAlerts(prev => {
-            const exists = prev.some(a => a.vehicleId === event.vehicleId && a.type === event.type)
+            const exists = prev.some(a => a.createdAtUtc === event.createdAtUtc)
             if (exists) return prev
             return [newAlert, ...prev]
         })
