@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Layout } from '../components/layout/Layout'
 import { StatsCards } from '../components/dashboard/StatsCards'
 import { VehiclesTable } from '../components/dashboard/VehiclesTable'
 import { AlertsPanel } from '../components/dashboard/AlertsPanel'
 import { FleetMap } from '../components/dashboard/FleetMap'
+import { SimulatorPanel } from '../components/simulator/SimulatorPanel'
 import { useVehicles } from '../hooks/useVehicles'
 import { useAlerts } from '../hooks/useAlerts'
 import { useSignalR } from '../hooks/useSignalR'
@@ -14,7 +15,7 @@ import type { HealthCheck } from '../types'
 
 export const Dashboard = () => {
   const navigate = useNavigate()
-  const { vehicles, loading: vehiclesLoading, error: vehiclesError } = useVehicles()
+  const { vehicles, loading: vehiclesLoading, error: vehiclesError, fetchVehicles } = useVehicles()
   const { alerts, alertCount, addAlertFromEvent } = useAlerts()
   const [backendStatus, setBackendStatus] = useState<HealthCheck | null>(null)
   const [backendError, setBackendError] = useState<string | null>(null)
@@ -27,6 +28,11 @@ export const Dashboard = () => {
     activeVehicles,
     updateVehicleState,
   } = useVehicleRealtime(vehicleIds)
+
+  // Refresh vehicles after creating a new one
+  const handleVehicleCreated = useCallback(() => {
+    fetchVehicles()
+  }, [fetchVehicles])
 
   // Check backend health on mount
   useEffect(() => {
@@ -100,6 +106,13 @@ export const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Floating Simulator Panel */}
+      <SimulatorPanel
+        onVehicleCreated={handleVehicleCreated}
+        onTelemetrySent={() => console.log('Telemetry sent')}
+        existingVehicles={vehicles}
+      />
     </Layout>
   )
 }

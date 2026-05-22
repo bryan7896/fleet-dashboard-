@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
+// Reemplaza todo el archivo con esta versión corregida
+import { useState, useEffect, useCallback, useRef } from 'react'
 import type { VehicleState, TelemetryReceivedEvent } from '../types'
 import { vehiclesService } from '../services/vehicles'
 
@@ -7,6 +8,10 @@ export function useVehicleRealtime(vehicleIds: string[]) {
   const [loading, setLoading] = useState(true)
   const [averageSpeed, setAverageSpeed] = useState(0)
   const [activeVehicles, setActiveVehicles] = useState(0)
+
+  // Guardamos los IDs como string estable para comparar
+  const vehicleIdsKey = vehicleIds.sort().join(',')
+  const prevKeyRef = useRef(vehicleIdsKey)
 
   const fetchAllStates = useCallback(async () => {
     const newStates = new Map<string, VehicleState>()
@@ -32,7 +37,17 @@ export function useVehicleRealtime(vehicleIds: string[]) {
     setAverageSpeed(movingCount > 0 ? Math.round(totalSpeed / movingCount) : 0)
     setActiveVehicles(movingCount)
     setLoading(false)
-  }, [vehicleIds])
+  }, [vehicleIds]) // dependencia correcta: vehicleIds (el array, pero el efecto se controlará aparte)
+
+  // Control de cambios reales en los IDs
+  useEffect(() => {
+    if (vehicleIdsKey !== prevKeyRef.current) {
+      prevKeyRef.current = vehicleIdsKey
+      if (vehicleIds.length > 0) {
+        fetchAllStates()
+      }
+    }
+  }, [vehicleIdsKey, vehicleIds.length, fetchAllStates])
 
   const updateVehicleState = useCallback((event: TelemetryReceivedEvent) => {
     setVehicleStates((prev) => {
@@ -48,7 +63,6 @@ export function useVehicleRealtime(vehicleIds: string[]) {
       }
       newStates.set(event.vehicleId, updatedState)
 
-      // Recalculate averages
       let totalSpeed = 0
       let movingCount = 0
       newStates.forEach((state) => {
@@ -63,12 +77,6 @@ export function useVehicleRealtime(vehicleIds: string[]) {
       return newStates
     })
   }, [])
-
-  useEffect(() => {
-    if (vehicleIds.length > 0) {
-      fetchAllStates()
-    }
-  }, [fetchAllStates, vehicleIds])
 
   return {
     vehicleStates,
