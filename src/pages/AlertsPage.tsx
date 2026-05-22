@@ -1,11 +1,11 @@
 import { useNavigate } from 'react-router-dom'
 import { Layout } from '../components/layout/Layout'
-import { useAlerts } from '../hooks/useAlerts'
 import { LoadingSpinner } from '../components/common/LoadingSpinner'
+import { useAlertsGlobal } from '../context/AlertContext'
 
 export const AlertsPage = () => {
   const navigate = useNavigate()
-  const { alerts, loading, error, fetchAlerts } = useAlerts()
+  const { alerts, loading, error, fetchAlerts } = useAlertsGlobal()
 
   const getSeverityBadge = (severity: string) => {
     const config: Record<string, string> = {

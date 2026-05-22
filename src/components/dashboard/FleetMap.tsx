@@ -140,13 +140,6 @@ export const FleetMap = ({ vehicles, vehicleStates, onVehicleSelect }: FleetMapP
             ({vehiclesWithPosition.length} vehículos en mapa)
           </span>
         </h2>
-        <button
-          onClick={fitMapToBounds}
-          className="text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-3 py-1 rounded transition-colors"
-          title="Ajustar mapa a todos los vehículos"
-        >
-          🔍 Ver todos
-        </button>
       </div>
       <div className="bg-gray-700 rounded-lg overflow-hidden h-[500px]">
         <GoogleMap

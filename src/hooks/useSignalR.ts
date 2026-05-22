@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useRef, useState } from 'react'
-import { signalRClient } from '../services/signalr'
+import * as signalR from '@microsoft/signalr'
+import { SIGNALR_HUB_URL } from '../utils/constants'
 import type { TelemetryReceivedEvent, AlertCreatedEvent } from '../types'
 
 interface UseSignalROptions {
@@ -12,105 +13,115 @@ interface UseSignalROptions {
   autoConnect?: boolean
 }
 
-export function useSignalR({ 
-  onTelemetryReceived, 
-  onAlertCreated,
-  onConnected,
-  onDisconnected,
-  onReconnecting,
-  onReconnected,
-  autoConnect = true 
-}: UseSignalROptions = {}) {
-  const [isConnected, setIsConnected] = useState(false)
-  const [isConnecting, setIsConnecting] = useState(false)
-  
-  // Refs para almacenar los callbacks (evitan cambios de dependencias)
-  const handlersRef = useRef({ 
-    onTelemetryReceived, 
+export function useSignalR(options: UseSignalROptions = {}) {
+  const {
+    onTelemetryReceived,
     onAlertCreated,
     onConnected,
     onDisconnected,
     onReconnecting,
-    onReconnected
-  })
-  
-  // Ref para evitar múltiples intentos de conexión simultáneos
-  const connectionAttemptRef = useRef(false)
+    onReconnected,
+    autoConnect = true,
+  } = options
 
-  // Actualizar refs cuando cambian los callbacks
+  const [isConnected, setIsConnected] = useState(false)
+  const [isConnecting, setIsConnecting] = useState(false)
+  const connectionRef = useRef<signalR.HubConnection | null>(null)
+
+  // Refs para callbacks (siempre actualizados)
+  const handlersRef = useRef({
+    onTelemetryReceived,
+    onAlertCreated,
+    onConnected,
+    onDisconnected,
+    onReconnecting,
+    onReconnected,
+  })
+
   useEffect(() => {
-    handlersRef.current = { 
-      onTelemetryReceived, 
+    handlersRef.current = {
+      onTelemetryReceived,
       onAlertCreated,
       onConnected,
       onDisconnected,
       onReconnecting,
-      onReconnected
+      onReconnected,
     }
   })
 
-  // Función de conexión estable (no depende de estados que cambien)
   const connect = useCallback(async () => {
-    // Evitar múltiples conexiones simultáneas
-    if (connectionAttemptRef.current) return
-    if (signalRClient.getConnectionStatus()) {
-      setIsConnected(true)
-      return
+    if (connectionRef.current) {
+      // Ya hay una conexión activa
+      if (connectionRef.current.state === signalR.HubConnectionState.Connected) {
+        setIsConnected(true)
+        return
+      }
+      // Intentar detener la anterior
+      try {
+        await connectionRef.current.stop()
+      } catch (e) { /* ignore */ }
+      connectionRef.current = null
     }
-    
-    connectionAttemptRef.current = true
+
     setIsConnecting(true)
-    
-    try {
-      await signalRClient.start({
-        onConnected: () => {
-          setIsConnected(true)
-          handlersRef.current.onConnected?.()
-        },
-        onDisconnected: (error) => {
-          setIsConnected(false)
-          handlersRef.current.onDisconnected?.(error)
-        },
-        onReconnecting: (error) => {
-          handlersRef.current.onReconnecting?.(error)
-        },
-        onReconnected: (connectionId) => {
-          setIsConnected(true)
-          handlersRef.current.onReconnected?.(connectionId)
-        },
-        onTelemetryReceived: (data) => {
-          handlersRef.current.onTelemetryReceived?.(data)
-        },
-        onAlertCreated: (data) => {
-          handlersRef.current.onAlertCreated?.(data)
-        },
+
+    const newConnection = new signalR.HubConnectionBuilder()
+      .withUrl(SIGNALR_HUB_URL, {
+        transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling,
       })
-    } catch (error) {
-      console.error('[useSignalR] Failed to connect', error)
+      .withAutomaticReconnect([0, 2000, 4000, 8000, 16000, 32000])
+      .configureLogging(signalR.LogLevel.Information)
+      .build()
+
+    // Registrar eventos
+    newConnection.on('telemetryReceived', (data: TelemetryReceivedEvent) => {
+      handlersRef.current.onTelemetryReceived?.(data)
+    })
+    newConnection.on('alertCreated', (data: AlertCreatedEvent) => {
+      handlersRef.current.onAlertCreated?.(data)
+    })
+
+    newConnection.onclose((error) => {
       setIsConnected(false)
-      handlersRef.current.onDisconnected?.(error as Error)
+      handlersRef.current.onDisconnected?.(error)
+    })
+    newConnection.onreconnecting((error) => {
+      handlersRef.current.onReconnecting?.(error)
+    })
+    newConnection.onreconnected((connectionId) => {
+      setIsConnected(true)
+      handlersRef.current.onReconnected?.(connectionId)
+    })
+
+    try {
+      await newConnection.start()
+      setIsConnected(true)
+      connectionRef.current = newConnection
+      handlersRef.current.onConnected?.()
+    } catch (err) {
+      console.error('[useSignalR] Connection failed', err)
+      setIsConnected(false)
+      handlersRef.current.onDisconnected?.(err as Error)
     } finally {
       setIsConnecting(false)
-      connectionAttemptRef.current = false
     }
-  }, []) // Sin dependencias externas
-
-  const disconnect = useCallback(async () => {
-    await signalRClient.stop()
-    setIsConnected(false)
-    setIsConnecting(false)
-    connectionAttemptRef.current = false
   }, [])
 
-  // Auto-conectar al montar
-  useEffect(() => {
-    if (autoConnect) {
-      connect()
+  const disconnect = useCallback(async () => {
+    if (connectionRef.current) {
+      await connectionRef.current.stop()
+      connectionRef.current = null
+      setIsConnected(false)
     }
+  }, [])
+
+  useEffect(() => {
+    if (!autoConnect) return
+    connect()
     return () => {
       disconnect()
     }
-  }, [autoConnect, connect, disconnect]) // connect y disconnect son estables
+  }, [autoConnect, connect, disconnect])
 
   return {
     isConnected,

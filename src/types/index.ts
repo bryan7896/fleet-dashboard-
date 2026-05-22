@@ -97,6 +97,7 @@ export interface TelemetryReceivedEvent {
   longitude: number
   speedKph: number
   capturedAtUtc: string
+  plate?: string
 }
 
 export interface AlertCreatedEvent {
@@ -105,4 +106,5 @@ export interface AlertCreatedEvent {
   severity: string
   message: string
   createdAtUtc: string
+  plate: string
 }

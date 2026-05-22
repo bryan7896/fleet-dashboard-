@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Layout } from '../components/layout/Layout'
 import { StatsCards } from '../components/dashboard/StatsCards'
@@ -7,22 +7,25 @@ import { AlertsPanel } from '../components/dashboard/AlertsPanel'
 import { FleetMap } from '../components/dashboard/FleetMap'
 import { SimulatorPanel } from '../components/simulator/SimulatorPanel'
 import { useVehicles } from '../hooks/useVehicles'
-import { useAlerts } from '../hooks/useAlerts'
 import { useSignalR } from '../hooks/useSignalR'
 import { useVehicleRealtime } from '../hooks/useVehicleRealtime'
 import { useToast } from '../components/common/Toast'
 import { healthService } from '../services/health'
 import type { HealthCheck } from '../types'
+import { useAlertsGlobal } from '../context/AlertContext'
 
 export const Dashboard = () => {
   const navigate = useNavigate()
   const { showToast } = useToast()
   const { vehicles, loading: vehiclesLoading, error: vehiclesError, fetchVehicles } = useVehicles()
-  const { alerts, alertCount, addAlertFromEvent, fetchAlerts } = useAlerts()
+  const { alerts, alertCount, addAlertFromEvent, fetchAlerts } = useAlertsGlobal()
   const [backendStatus, setBackendStatus] = useState<HealthCheck | null>(null)
   const [backendError, setBackendError] = useState<string | null>(null)
 
-  // ✅ Memoizar vehicleIds para evitar que cambie la referencia en cada render
+  // Ref para evitar el toast en la primera conexión al montar
+  const isFirstConnection = useRef(true)
+
+  // Memoizar vehicleIds para evitar que cambie la referencia en cada render
   const vehicleIds = useMemo(() => vehicles.map(v => v.id), [vehicles])
 
   const {
@@ -39,7 +42,7 @@ export const Dashboard = () => {
     showToast('Vehículo creado correctamente', 'success')
   }, [fetchVehicles, showToast])
 
-  // ✅ Check backend health - sin dependencias (solo montar)
+  // Check backend health - sin dependencias (solo montar)
   useEffect(() => {
     let isMounted = true
     const checkHealth = async () => {
@@ -63,7 +66,7 @@ export const Dashboard = () => {
       isMounted = false
       clearInterval(interval)
     }
-  }, []) // ✅ Dependencias vacías, showToast se usa dentro pero no la incluimos
+  }, []) // Dependencias vacías
 
   // SignalR connection with reconnect button support
   const { isConnected: signalRConnected, connect: reconnectSignalR, isConnecting } = useSignalR({
@@ -77,10 +80,14 @@ export const Dashboard = () => {
       updateVehicleState(data)
     },
     onConnected: () => {
-      showToast('Conexión en tiempo real establecida', 'success')
+      if (isFirstConnection.current) {
+        isFirstConnection.current = false
+      } else {
+        showToast('Conexión en tiempo real establecida', 'success')
+      }
     },
     onDisconnected: () => {
-      showToast('Conexión en tiempo real perdida', 'error')
+      console.log('Conexión en tiempo real perdida')
     },
     onReconnected: () => {
       showToast('Conexión en tiempo real restablecida', 'success')

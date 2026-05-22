@@ -54,12 +54,13 @@ export function useVehicleRealtime(vehicleIds: string[]) {
       const newStates = new Map(prev)
       const existingState = newStates.get(event.vehicleId)
       const updatedState: VehicleState = {
-        vehicleId: event.vehicleId,
-        status: existingState?.status || 'Moving',
-        lastLatitude: event.latitude,
-        lastLongitude: event.longitude,
-        lastSpeedKph: event.speedKph,
-        lastTelemetryAtUtc: event.capturedAtUtc,
+          vehicleId: event.vehicleId,
+          status: existingState?.status || 'Moving',
+          lastLatitude: event.latitude,
+          lastLongitude: event.longitude,
+          lastSpeedKph: event.speedKph,
+          lastTelemetryAtUtc: event.capturedAtUtc,
+          plate: event.plate || existingState?.plate || 'Unknown'
       }
       newStates.set(event.vehicleId, updatedState)
 
