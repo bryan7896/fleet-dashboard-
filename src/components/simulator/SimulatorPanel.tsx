@@ -1,6 +1,7 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { vehiclesService } from '../../services/vehicles'
 import { telemetryService, generateEventId } from '../../services/telemetry'
+import { useToast } from '../common/Toast'
 import type { Vehicle } from '../../types'
 
 interface SimulatorPanelProps {
@@ -10,6 +11,7 @@ interface SimulatorPanelProps {
 }
 
 export const SimulatorPanel = ({ onVehicleCreated, onTelemetrySent, existingVehicles }: SimulatorPanelProps) => {
+  const { showToast } = useToast()
   const [isExpanded, setIsExpanded] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [isSending, setIsSending] = useState(false)
@@ -24,9 +26,34 @@ export const SimulatorPanel = ({ onVehicleCreated, onTelemetrySent, existingVehi
   const [lng, setLng] = useState(-74.0721)
   const [speed, setSpeed] = useState(60)
 
+  // Refs para mantener valores actualizados en el intervalo de simulación
+  const latRef = useRef(lat)
+  const lngRef = useRef(lng)
+  const speedRef = useRef(speed)
+  const selectedVehicleIdRef = useRef(selectedVehicleId)
+
+  useEffect(() => {
+    latRef.current = lat
+    lngRef.current = lng
+    speedRef.current = speed
+  }, [lat, lng, speed])
+
+  useEffect(() => {
+    selectedVehicleIdRef.current = selectedVehicleId
+  }, [selectedVehicleId])
+
+  // Limpiar intervalo al desmontar
+  useEffect(() => {
+    return () => {
+      if (simulationInterval.current) {
+        clearInterval(simulationInterval.current)
+      }
+    }
+  }, [])
+
   const handleCreateVehicle = async () => {
     if (!plate.trim() || !alias.trim()) {
-      alert('Placa y alias son requeridos')
+      showToast('Placa y alias son requeridos', 'warning')
       return
     }
     setIsCreating(true)
@@ -36,10 +63,10 @@ export const SimulatorPanel = ({ onVehicleCreated, onTelemetrySent, existingVehi
       onVehicleCreated?.(newVehicle)
       setPlate('')
       setAlias('')
-      alert(`Vehículo ${newVehicle.plate} creado exitosamente`)
+      showToast(`Vehículo ${newVehicle.plate} creado exitosamente`, 'success')
     } catch (err) {
       console.error('Failed to create vehicle:', err)
-      alert('Error al crear vehículo')
+      showToast('Error al crear vehículo', 'error')
     } finally {
       setIsCreating(false)
     }
@@ -47,7 +74,7 @@ export const SimulatorPanel = ({ onVehicleCreated, onTelemetrySent, existingVehi
 
   const handleSendTelemetry = async () => {
     if (!selectedVehicleId) {
-      alert('Selecciona un vehículo')
+      showToast('Selecciona un vehículo', 'warning')
       return
     }
     setIsSending(true)
@@ -63,12 +90,14 @@ export const SimulatorPanel = ({ onVehicleCreated, onTelemetrySent, existingVehi
       })
       console.log('Telemetry sent:', result)
       onTelemetrySent?.()
-      if (!result.accepted) {
-        console.warn('Telemetry not accepted:', result.message)
+      if (result.accepted) {
+        showToast(`Telemetría enviada a ${selectedVehicleId.slice(0, 8)}`, 'success')
+      } else {
+        showToast(`Telemetría rechazada: ${result.message}`, 'warning')
       }
     } catch (err) {
       console.error('Failed to send telemetry:', err)
-      alert('Error al enviar telemetría')
+      showToast('Error al enviar telemetría', 'error')
     } finally {
       setIsSending(false)
     }
@@ -76,26 +105,38 @@ export const SimulatorPanel = ({ onVehicleCreated, onTelemetrySent, existingVehi
 
   const startSimulation = () => {
     if (!selectedVehicleId) {
-      alert('Selecciona un vehículo para simular movimiento')
+      showToast('Selecciona un vehículo para simular movimiento', 'warning')
       return
     }
     if (simulationInterval.current) clearInterval(simulationInterval.current)
     setSimulating(true)
-    // Simulate movement: random walk around Bogotá
+    showToast(`Simulación iniciada para vehículo ${selectedVehicleId.slice(0, 8)}`, 'info')
+
+    // Usamos refs para capturar valores actualizados en cada ciclo
     simulationInterval.current = setInterval(() => {
-      setLat(prev => prev + (Math.random() - 0.5) * 0.01)
-      setLng(prev => prev + (Math.random() - 0.5) * 0.01)
-      setSpeed(Math.floor(Math.random() * 120) + 20)
-      // Auto-send telemetry every 2 seconds
+      // Generar nuevos valores
+      const newLat = latRef.current + (Math.random() - 0.5) * 0.01
+      const newLng = lngRef.current + (Math.random() - 0.5) * 0.01
+      const newSpeed = Math.floor(Math.random() * 120) + 20
+
+      // Actualizar estado (para que el formulario se vea actualizado)
+      setLat(newLat)
+      setLng(newLng)
+      setSpeed(newSpeed)
+
+      // Enviar telemetría con los nuevos valores
       telemetryService.sendTelemetry({
-        vehicleId: selectedVehicleId,
+        vehicleId: selectedVehicleIdRef.current,
         externalEventId: generateEventId(),
         capturedAtUtc: new Date().toISOString(),
-        latitude: lat,
-        longitude: lng,
-        speedKph: speed,
+        latitude: newLat,
+        longitude: newLng,
+        speedKph: newSpeed,
         ignitionOn: true,
-      }).catch(console.error)
+      }).catch(err => {
+        console.error('Simulation telemetry error:', err)
+        showToast('Error enviando telemetría en simulación', 'error')
+      })
     }, 2000)
   }
 
@@ -105,6 +146,7 @@ export const SimulatorPanel = ({ onVehicleCreated, onTelemetrySent, existingVehi
       simulationInterval.current = null
     }
     setSimulating(false)
+    showToast('Simulación detenida', 'info')
   }
 
   return (

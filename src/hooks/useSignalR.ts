@@ -5,22 +5,46 @@ import type { TelemetryReceivedEvent, AlertCreatedEvent } from '../types'
 interface UseSignalROptions {
   onTelemetryReceived?: (data: TelemetryReceivedEvent) => void
   onAlertCreated?: (data: AlertCreatedEvent) => void
+  onConnected?: () => void
+  onDisconnected?: (error?: Error) => void
+  onReconnecting?: (error?: Error) => void
+  onReconnected?: (connectionId?: string) => void
   autoConnect?: boolean
 }
 
 export function useSignalR({ 
   onTelemetryReceived, 
-  onAlertCreated, 
+  onAlertCreated,
+  onConnected,
+  onDisconnected,
+  onReconnecting,
+  onReconnected,
   autoConnect = true 
 }: UseSignalROptions = {}) {
   const [isConnected, setIsConnected] = useState(false)
   const [isConnecting, setIsConnecting] = useState(false)
-  const handlersRef = useRef({ onTelemetryReceived, onAlertCreated })
+  
+  // Refs para mantener los callbacks actualizados sin causar reconexiones
+  const handlersRef = useRef({ 
+    onTelemetryReceived, 
+    onAlertCreated,
+    onConnected,
+    onDisconnected,
+    onReconnecting,
+    onReconnected
+  })
 
-  // Update handlers ref when they change
+  // Actualizar refs cuando cambian los callbacks
   useEffect(() => {
-    handlersRef.current = { onTelemetryReceived, onAlertCreated }
-  }, [onTelemetryReceived, onAlertCreated])
+    handlersRef.current = { 
+      onTelemetryReceived, 
+      onAlertCreated,
+      onConnected,
+      onDisconnected,
+      onReconnecting,
+      onReconnected
+    }
+  }, [onTelemetryReceived, onAlertCreated, onConnected, onDisconnected, onReconnecting, onReconnected])
 
   const connect = useCallback(async () => {
     if (signalRClient.getConnectionStatus() || isConnecting) return
@@ -30,18 +54,18 @@ export function useSignalR({
       await signalRClient.start({
         onConnected: () => {
           setIsConnected(true)
-          console.log('[useSignalR] Connected')
+          handlersRef.current.onConnected?.()
         },
         onDisconnected: (error) => {
           setIsConnected(false)
-          console.log('[useSignalR] Disconnected', error)
+          handlersRef.current.onDisconnected?.(error)
         },
         onReconnecting: (error) => {
-          console.log('[useSignalR] Reconnecting', error)
+          handlersRef.current.onReconnecting?.(error)
         },
         onReconnected: (connectionId) => {
           setIsConnected(true)
-          console.log('[useSignalR] Reconnected', connectionId)
+          handlersRef.current.onReconnected?.(connectionId)
         },
         onTelemetryReceived: (data) => {
           handlersRef.current.onTelemetryReceived?.(data)
@@ -52,10 +76,11 @@ export function useSignalR({
       })
     } catch (error) {
       console.error('[useSignalR] Failed to connect', error)
+      handlersRef.current.onDisconnected?.(error as Error)
     } finally {
       setIsConnecting(false)
     }
-  }, [isConnecting])
+  }, [isConnecting]) 
 
   const disconnect = useCallback(async () => {
     await signalRClient.stop()

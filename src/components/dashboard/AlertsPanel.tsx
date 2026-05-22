@@ -3,9 +3,10 @@ import type { Alert } from '../../types'
 interface AlertsPanelProps {
   alerts: Alert[]
   loading?: boolean
+  onRefresh?: () => void
 }
 
-export const AlertsPanel = ({ alerts, loading = false }: AlertsPanelProps) => {
+export const AlertsPanel = ({ alerts, loading = false, onRefresh }: AlertsPanelProps) => {
   const getSeverityStyles = (severity: string) => {
     const styles: Record<string, { bg: string; border: string; text: string }> = {
       High: { bg: 'bg-red-500/10', border: 'border-red-500/30', text: 'text-red-400' },
@@ -19,7 +20,9 @@ export const AlertsPanel = ({ alerts, loading = false }: AlertsPanelProps) => {
   if (loading) {
     return (
       <div className="card">
-        <h2 className="text-lg font-semibold text-white mb-4">Alertas en Tiempo Real</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-white">Alertas en Tiempo Real</h2>
+        </div>
         <div className="flex justify-center py-8">
           <div className="animate-pulse text-gray-400">Cargando alertas...</div>
         </div>
@@ -31,11 +34,22 @@ export const AlertsPanel = ({ alerts, loading = false }: AlertsPanelProps) => {
     <div className="card">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-white">Alertas en Tiempo Real</h2>
-        {alerts.length > 0 && (
-          <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
-            {alerts.length} activas
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {alerts.length > 0 && (
+            <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+              {alerts.length} activas
+            </span>
+          )}
+          {onRefresh && (
+            <button
+              onClick={onRefresh}
+              className="text-gray-400 hover:text-white transition-colors text-sm"
+              title="Refrescar alertas"
+            >
+              🔄
+            </button>
+          )}
+        </div>
       </div>
       {alerts.length === 0 ? (
         <div className="text-center py-8">
