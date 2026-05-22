@@ -57,6 +57,7 @@ export interface Alert {
   vehicleId: string
   type: string
   severity: 'Low' | 'Medium' | 'High' | 'Critical'
+  plate: string
   message: string
   createdAtUtc: string
 }

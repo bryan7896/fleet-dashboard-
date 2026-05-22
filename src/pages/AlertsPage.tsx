@@ -100,7 +100,7 @@ export const AlertsPage = () => {
                         </span>
                       </td>
                       <td className="py-3 text-gray-300 font-mono text-sm">
-                        {alert.vehicleId.slice(0, 8)}...
+                        {alert.plate}
                       </td>
                       <td className="py-3 text-gray-300">{alert.message}</td>
                       <td className="py-3 text-gray-400 text-sm">
