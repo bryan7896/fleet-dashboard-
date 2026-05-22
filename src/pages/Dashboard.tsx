@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Layout } from '../components/layout/Layout'
 import { StatsCards } from '../components/dashboard/StatsCards'
@@ -22,14 +22,15 @@ export const Dashboard = () => {
   const [backendStatus, setBackendStatus] = useState<HealthCheck | null>(null)
   const [backendError, setBackendError] = useState<string | null>(null)
 
-  const vehicleIds = vehicles.map(v => v.id)
+  // ✅ Memoizar vehicleIds para evitar que cambie la referencia en cada render
+  const vehicleIds = useMemo(() => vehicles.map(v => v.id), [vehicles])
+
   const {
     vehicleStates,
     loading: statesLoading,
     averageSpeed,
     activeVehicles,
     updateVehicleState,
-    refreshStates,
   } = useVehicleRealtime(vehicleIds)
 
   // Refresh vehicles after creating a new one
@@ -38,28 +39,36 @@ export const Dashboard = () => {
     showToast('Vehículo creado correctamente', 'success')
   }, [fetchVehicles, showToast])
 
-  // Check backend health on mount
+  // ✅ Check backend health - sin dependencias (solo montar)
   useEffect(() => {
+    let isMounted = true
     const checkHealth = async () => {
       try {
         const result = await healthService.check()
-        setBackendStatus(result)
-        setBackendError(null)
+        if (isMounted) {
+          setBackendStatus(result)
+          setBackendError(null)
+        }
       } catch (err) {
         console.error('Backend health check failed:', err)
-        setBackendError('Backend no disponible')
-        showToast('No se pudo conectar con el backend', 'error')
+        if (isMounted) {
+          setBackendError('Backend no disponible')
+          showToast('No se pudo conectar con el backend', 'error')
+        }
       }
     }
     checkHealth()
     const interval = setInterval(checkHealth, 30000)
-    return () => clearInterval(interval)
-  }, [showToast])
+    return () => {
+      isMounted = false
+      clearInterval(interval)
+    }
+  }, []) // ✅ Dependencias vacías, showToast se usa dentro pero no la incluimos
 
   // SignalR connection with reconnect button support
   const { isConnected: signalRConnected, connect: reconnectSignalR, isConnecting } = useSignalR({
     onAlertCreated: (data) => {
-      console.log('Alert received in Dashboard:', data)
+      console.log('Alert received:', data)
       addAlertFromEvent(data)
       showToast(`Nueva alerta: ${data.type}`, 'warning')
     },
@@ -83,7 +92,6 @@ export const Dashboard = () => {
     showToast('Intentando reconectar...', 'info')
   }
 
-  // Refresh alerts manually if needed
   const handleRefreshAlerts = () => {
     fetchAlerts()
     showToast('Alertas actualizadas', 'info')
@@ -92,7 +100,7 @@ export const Dashboard = () => {
   return (
     <Layout alertCount={alertCount}>
       <div className="space-y-6">
-        {/* Connection Status with Reconnect Button */}
+        {/* Connection Status */}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
@@ -126,7 +134,6 @@ export const Dashboard = () => {
           </div>
         </div>
 
-        {/* Stats Cards (ya incluye skeletons) */}
         <StatsCards
           totalVehicles={vehicles.length}
           activeAlerts={alertCount}
@@ -135,14 +142,12 @@ export const Dashboard = () => {
           loading={vehiclesLoading || statesLoading}
         />
 
-        {/* Fleet Map */}
         <FleetMap
           vehicles={vehicles}
           vehicleStates={vehicleStates}
           onVehicleSelect={(vehicleId) => navigate(`/vehicle/${vehicleId}`)}
         />
 
-        {/* Two column layout for table and alerts */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
             <VehiclesTable
@@ -162,7 +167,6 @@ export const Dashboard = () => {
         </div>
       </div>
 
-      {/* Floating Simulator Panel */}
       <SimulatorPanel
         onVehicleCreated={handleVehicleCreated}
         onTelemetrySent={() => showToast('Telemetría enviada', 'success')}

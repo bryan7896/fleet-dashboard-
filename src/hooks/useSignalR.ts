@@ -24,7 +24,7 @@ export function useSignalR({
   const [isConnected, setIsConnected] = useState(false)
   const [isConnecting, setIsConnecting] = useState(false)
   
-  // Refs para mantener los callbacks actualizados sin causar reconexiones
+  // Refs para almacenar los callbacks (evitan cambios de dependencias)
   const handlersRef = useRef({ 
     onTelemetryReceived, 
     onAlertCreated,
@@ -33,6 +33,9 @@ export function useSignalR({
     onReconnecting,
     onReconnected
   })
+  
+  // Ref para evitar múltiples intentos de conexión simultáneos
+  const connectionAttemptRef = useRef(false)
 
   // Actualizar refs cuando cambian los callbacks
   useEffect(() => {
@@ -44,12 +47,20 @@ export function useSignalR({
       onReconnecting,
       onReconnected
     }
-  }, [onTelemetryReceived, onAlertCreated, onConnected, onDisconnected, onReconnecting, onReconnected])
+  })
 
+  // Función de conexión estable (no depende de estados que cambien)
   const connect = useCallback(async () => {
-    if (signalRClient.getConnectionStatus() || isConnecting) return
-
+    // Evitar múltiples conexiones simultáneas
+    if (connectionAttemptRef.current) return
+    if (signalRClient.getConnectionStatus()) {
+      setIsConnected(true)
+      return
+    }
+    
+    connectionAttemptRef.current = true
     setIsConnecting(true)
+    
     try {
       await signalRClient.start({
         onConnected: () => {
@@ -76,17 +87,22 @@ export function useSignalR({
       })
     } catch (error) {
       console.error('[useSignalR] Failed to connect', error)
+      setIsConnected(false)
       handlersRef.current.onDisconnected?.(error as Error)
     } finally {
       setIsConnecting(false)
+      connectionAttemptRef.current = false
     }
-  }, [isConnecting]) 
+  }, []) // Sin dependencias externas
 
   const disconnect = useCallback(async () => {
     await signalRClient.stop()
     setIsConnected(false)
+    setIsConnecting(false)
+    connectionAttemptRef.current = false
   }, [])
 
+  // Auto-conectar al montar
   useEffect(() => {
     if (autoConnect) {
       connect()
@@ -94,7 +110,7 @@ export function useSignalR({
     return () => {
       disconnect()
     }
-  }, [autoConnect, connect, disconnect])
+  }, [autoConnect, connect, disconnect]) // connect y disconnect son estables
 
   return {
     isConnected,

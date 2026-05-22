@@ -14,6 +14,7 @@ export interface VehicleState {
   lastLongitude: number
   lastSpeedKph: number
   lastTelemetryAtUtc: string
+  plate: string
 }
 
 export interface VehicleMetrics {

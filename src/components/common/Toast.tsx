@@ -28,7 +28,7 @@ export const Toast = ({ id, message, type, duration = 5000, onClose }: ToastProp
   useEffect(() => {
     const timer = setTimeout(() => onClose(id), duration)
     return () => clearTimeout(timer)
-  }, [id, duration, onClose])
+  }, [duration, onClose])
 
   return (
     <div className={`${bgColors[type]} rounded-lg shadow-lg p-3 mb-2 min-w-[280px] animate-slide-in`}>
