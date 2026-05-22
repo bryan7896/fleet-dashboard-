@@ -10,7 +10,7 @@ function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/vehicle/:id" element={<VehicleDetail />} />
         <Route path="/alerts" element={<AlertsPage />} />
-        <Route path="/ai-assistant" element={<Dashboard />} /> {/* Placeholder */}
+        <Route path="/ai-assistant" element={<Dashboard />} />
       </Routes>
     </BrowserRouter>
   )
