@@ -27,6 +27,7 @@ export function useSignalR(options: UseSignalROptions = {}) {
   const [isConnected, setIsConnected] = useState(false)
   const [isConnecting, setIsConnecting] = useState(false)
   const connectionRef = useRef<signalR.HubConnection | null>(null)
+  const hasConnected = useRef(false)
 
   // Refs para callbacks (siempre actualizados)
   const handlersRef = useRef({
@@ -117,6 +118,8 @@ export function useSignalR(options: UseSignalROptions = {}) {
 
   useEffect(() => {
     if (!autoConnect) return
+    if (hasConnected.current) return
+    hasConnected.current = true
     connect()
     return () => {
       disconnect()
